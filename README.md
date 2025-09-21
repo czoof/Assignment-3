@@ -93,6 +93,28 @@ Videos are saved to `videos.json` in the current working directory. The file con
 - Improve the detail view UI and validation
 - Package the app into a single-file executable (PyInstaller)
 
+## Packaging (create an executable)
+
+This project can be packaged into a single-file executable using PyInstaller. A helper PowerShell script `build.ps1` is included to automate the common steps on Windows.
+
+Basic steps (PowerShell):
+
+```powershell
+# Ensure execution policy allows running local scripts (run as admin if needed)
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+# Run the build script (it creates a venv, installs PyInstaller, then builds)
+.\build.ps1
+
+# The resulting executable will be in the `dist` folder as `YouTubeSimulator.exe`.
+```
+
+Notes:
+
+- The `--windowed` option is used so the packaged app doesn't open a console window. Remove it if you prefer a console build.
+- On other platforms (macOS/Linux) use the equivalent PyInstaller commands in a shell environment.
+- Building an executable may require additional platform-specific dependencies for Tkinter.
+
 ## License
 
 This is a small demo/assignment project. Add a license file if you intend to distribute it publicly.

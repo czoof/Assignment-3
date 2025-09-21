@@ -1,13 +1,13 @@
 """YouTube-like simple console app.
 
-Features:
-- Upload videos (metadata only)
-- List videos
-- View video details
-- Delete videos
-- Search by title or tags
-- Persist videos to `videos.json`
-- `--demo` mode to run a small scripted demo
+This module provides two ways to interact with a small video metadata store:
+- Command-line interface (CLI) for scripted usage
+- Graphical user interface (GUI) built with Tkinter for interactive use
+
+Videos are stored as JSON in `videos.json` (human readable). The GUI will launch
+when the script is run without a positional command. The CLI preserves the
+original functionality (upload/list/view/delete/search) and includes a `--demo`
+mode that seeds example data and demonstrates operations.
 """
 
 from __future__ import annotations
@@ -33,6 +33,14 @@ DB_FILE = "videos.json"
 
 @dataclass
 class Video:
+    """Simple dataclass representing video metadata.
+
+    Fields:
+    - id: integer identifier assigned by the store
+    - title, description, uploader: basic metadata strings
+    - tags: list of tag strings
+    - uploaded_at: UTC ISO timestamp string set at creation
+    """
     id: int
     title: str
     description: str
@@ -42,45 +50,65 @@ class Video:
 
 
 class VideoStore:
+    """Persistent collection of Video objects stored in a JSON file.
+
+    Responsibilities:
+    - load existing videos from disk at startup
+    - save changes to disk after add/delete
+    - provide helpers to add/list/get/delete/search videos
+    """
     def __init__(self, path: str = DB_FILE):
+        # path to the JSON file used for persistence
         self.path = path
+        # in-memory list of Video instances
         self.videos: List[Video] = []
+        # load stored data (if any)
         self._load()
 
     def _load(self):
+        # Load JSON array from file and instantiate Video objects.
+        # If the file does not exist or is invalid, start with an empty list.
         if not os.path.exists(self.path):
             self.videos = []
             return
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            # Create Video instances from stored dicts
             self.videos = [Video(**v) for v in data]
         except Exception:
+            # Any error reading/parsing -> reset to empty store
             self.videos = []
 
     def _save(self):
+        # Write current in-memory list to JSON file (pretty printed)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump([asdict(v) for v in self.videos], f, indent=2)
 
     def next_id(self) -> int:
+        # Determine next id (1-based incremental)
         return max((v.id for v in self.videos), default=0) + 1
 
     def add(self, title: str, description: str, uploader: str, tags: Optional[List[str]] = None) -> Video:
+        # Create a new Video object, append to store, persist and return it
         vid = Video(id=self.next_id(), title=title, description=description, uploader=uploader, tags=tags or [])
         self.videos.append(vid)
         self._save()
         return vid
 
     def list(self) -> List[Video]:
+        # Return a copy of the stored videos list
         return list(self.videos)
 
     def get(self, video_id: int) -> Optional[Video]:
+        # Find and return a video by id
         for v in self.videos:
             if v.id == video_id:
                 return v
         return None
 
     def delete(self, video_id: int) -> bool:
+        # Remove a video by id. Return True if deletion happened.
         before = len(self.videos)
         self.videos = [v for v in self.videos if v.id != video_id]
         changed = len(self.videos) != before
@@ -89,6 +117,7 @@ class VideoStore:
         return changed
 
     def search(self, query: str) -> List[Video]:
+        # Case-insensitive search across title, description and tags
         q = query.lower()
         results = [v for v in self.videos if q in v.title.lower() or q in v.description.lower() or any(q in t.lower() for t in v.tags)]
         return results
@@ -108,6 +137,7 @@ def parse_args(argv=None):
 
 
 def cmd_upload(store: VideoStore, args: argparse.Namespace):
+    # Validate and add a video from CLI args
     if not args.title:
         print("Error: --title is required for upload")
         return 2
@@ -118,6 +148,7 @@ def cmd_upload(store: VideoStore, args: argparse.Namespace):
 
 
 def cmd_list(store: VideoStore, args: argparse.Namespace):
+    # Print a simple listing of stored videos to stdout
     videos = store.list()
     if not videos:
         print("No videos uploaded yet.")
@@ -130,6 +161,7 @@ def cmd_list(store: VideoStore, args: argparse.Namespace):
 
 
 def cmd_view(store: VideoStore, args: argparse.Namespace):
+    # Show JSON details for a specific video id
     if not args.id:
         print("Error: --id is required for view")
         return 2
@@ -142,6 +174,7 @@ def cmd_view(store: VideoStore, args: argparse.Namespace):
 
 
 def cmd_delete(store: VideoStore, args: argparse.Namespace):
+    # Delete by id and print result code for CLI usage
     if not args.id:
         print("Error: --id is required for delete")
         return 2
@@ -155,6 +188,7 @@ def cmd_delete(store: VideoStore, args: argparse.Namespace):
 
 
 def cmd_search(store: VideoStore, args: argparse.Namespace):
+    # Search and display a brief result list
     if not args.query:
         print("Error: --query is required for search")
         return 2
@@ -169,6 +203,9 @@ def cmd_search(store: VideoStore, args: argparse.Namespace):
 
 
 def run_demo(store: VideoStore):
+    # Simple scripted demo used by the CLI --demo flag. It resets the store
+    # (when run by the main flow) and uploads three example videos, then
+    # exercises list/search/view/delete to demonstrate functionality.
     print("Running demo: uploading 3 videos, listing, searching, viewing, deleting")
     demos = [
         {"title": "My First Vlog", "description": "Hello world vlog", "uploader": "alice", "tags": "vlog,intro"},
